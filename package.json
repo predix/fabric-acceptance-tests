@@ -1,0 +1,23 @@
+{
+  "name": "blockchain-acceptance-tests",
+  "version": "0.0.1",
+  "description": "Acceptance tests for blockchain",
+  "main": "app.js",
+  "scripts": {
+    "test": "mocha specs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.svc.ice.gecis.io:bifrost/blockchain-acceptance-tests.git"
+  },
+  "keywords": [
+    "blockchain",
+    "hyperledger"
+  ],
+  "author": "Atul Kshirsagar",
+  "license": "ISC",
+  "devDependencies": {
+    "mocha": "^3.2.0",
+    "mocha-cli": "^1.0.1"
+  }
+}
