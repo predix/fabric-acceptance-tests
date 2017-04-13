@@ -4,7 +4,8 @@
   "description": "Acceptance tests for blockchain",
   "main": "app.js",
   "scripts": {
-    "test": "mocha specs"
+    "test": "mocha specs",
+    "start": "mocha specs"
   },
   "repository": {
     "type": "git",
@@ -16,7 +17,10 @@
   ],
   "author": "Atul Kshirsagar",
   "license": "ISC",
-  "devDependencies": {
+  "dependencies": {
+    "bluebird": "^3.5.0",
+    "expect.js": "^0.3.1",
+    "hfc": "^0.6.1",
     "mocha": "^3.2.0",
     "mocha-cli": "^1.0.1"
   }
