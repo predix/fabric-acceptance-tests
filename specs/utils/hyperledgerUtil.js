@@ -1,3 +1,5 @@
+'use strict';
+
 var bluebird = require('bluebird');
 var hfc = require('hfc');
 var fs = require('fs');
@@ -98,6 +100,18 @@ function* queryChaincode(user, args, chaincodeID) {
     return queryTx;
 }
 
+function* invokeChaincode(user, args, chaincodeID) {
+    console.log("Entering invokeChaincode");
+    var invokeRequest = {
+        chaincodeID: chaincodeID,
+        fcn: "invoke",
+        args: args
+    }
+    var invokeTx = user.invoke(invokeRequest);
+    console.log("Submitted invoke transaction");
+    return invokeTx;
+}
+
 module.exports = {
     getRegistrar: getRegistrar,
     getUser: bluebird.coroutine(getUser),
@@ -106,5 +120,6 @@ module.exports = {
     enrollRegistrar: bluebird.coroutine(enrollRegistrar),
     registerUser: bluebird.coroutine(registerUser),
     deployChaincode: bluebird.coroutine(deployChaincode),
-    queryChaincode: bluebird.coroutine(queryChaincode)
+    queryChaincode: bluebird.coroutine(queryChaincode),
+    invokeChaincode: bluebird.coroutine(invokeChaincode)
 }
