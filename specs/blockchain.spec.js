@@ -7,6 +7,7 @@ var Promise         = require('bluebird');
 var mocha           = require('mocha');
 var coMocha         = require('co-mocha');
 var randomstring    = require('randomstring');
+var delay           = require('delay');
 
 coMocha(mocha)
 
@@ -60,7 +61,26 @@ describe('Blockchain', function() {
         }
     })
 
-    it('should be able to deploy chaincode', function*(done) {
+    function* waitForDeployTransaction(tx) {
+        var eventReceived = false;
+        tx.on('complete', function(results) {
+            // Deploy request completed successfully
+            console.log("deploy results", results);
+            eventReceived = true;
+            // Set the testChaincodeID for subsequent tests
+            chaincodeID = results.chaincodeID;
+            console.log("Successfully deployed chaincode", chaincodeID);
+        });
+        tx.on('error', function(err) {
+            console.log("Failed to deploy chaincode", err);
+            expect().fail(err.message);
+            eventReceived = true;
+        });
+        yield delay(20000);
+        expect(eventReceived).to.be(true);
+    }
+
+    it('should be able to deploy chaincode', function*() {
         this.timeout(30000);
         console.log("Starting deploying chaincode");
         try {
@@ -68,24 +88,30 @@ describe('Blockchain', function() {
             var args = config.chaincodeInitArgs;
             var user = yield hyperledgerUtil.getUser(newuser);
             var tx = yield hyperledgerUtil.deployChaincode(user, args, chaincodePath);
-            tx.on('complete', function(results) {
-                // Deploy request completed successfully
-                console.log("deploy results", results);
-                // Set the testChaincodeID for subsequent tests
-                chaincodeID = results.chaincodeID;
-                console.log("Successfully deployed chaincode", chaincodeID)
-                done();
-            });
-            tx.on('error', function(err) {
-                console.log("Failed to deploy chaincode", err)
-                done(err);
-            });
+            yield waitForDeployTransaction(tx);
         } catch (err) {
             expect().fail(err.message);
         }
     })
 
-    it.skip('should be able to query chaincode', function*(done) {
+    function* waitForQueryTransaction(tx) {
+        var eventReceived = false;
+        tx.on('complete', function(results) {
+            var bal = results.result.toString();
+            console.log("query results", bal);
+            eventReceived = true;
+            expect(bal).to.be(config.chaincodeQueryResult)
+        });
+        tx.on('error', function(err) {
+            console.log("Failed to query chaincode", err)
+            eventReceived = true;
+            expect().fail(err.message);
+        });
+        yield delay(4000);
+        expect(eventReceived).to.be(true);
+    }
+
+    it('should be able to query chaincode', function*() {
         this.timeout(5000);
         console.log("Starting querying chaincode");
         try {
@@ -94,27 +120,27 @@ describe('Blockchain', function() {
             var args = config.chaincodeQueryArgs;
             var user = yield hyperledgerUtil.getUser(newuser);
             var tx = yield hyperledgerUtil.queryChaincode(user, args, chaincodeID);
-            tx.on('complete', function(results) {
-                // Deploy request completed successfully
-                var bal = results.result.toString();
-                console.log("query results", bal);
-                expect(bal).to.be(config.chaincodeQueryResult)
-                // Set the testChaincodeID for subsequent tests
-                // chaincodeID = results.chaincodeID;
-                // console.log("Successfully deployed chaincode", chaincodeID)
-                // done();
-            });
-            tx.on('error', function(err) {
-                console.log("Failed to query chaincode", err)
-                expect().fail(err.message);
-                // done(err);
-            });
+            yield waitForQueryTransaction(tx);
         } catch (err) {
             expect().fail(err.message);
         }
     })
 
-    it.skip('should be able to invoke chaincode', function*(done) {
+    function* waitForInvokeTransaction(tx) {
+        var eventReceived = false;
+        tx.on('submitted', function(results) {
+            console.log("invoke results", results);
+            eventReceived = true;
+        });
+        tx.on('error', function(err) {
+            console.log("Failed to invoke chaincode", err)
+            eventReceived = true;
+        });
+        yield delay(4000);
+        expect(eventReceived).to.be(true);
+    }
+
+    it('should be able to invoke chaincode', function*() {
         this.timeout(5000);
         console.log("Starting invoking chaincode");
         try {
@@ -123,16 +149,7 @@ describe('Blockchain', function() {
             var args = config.chaincodeInvokeArgs;
             var user = yield hyperledgerUtil.getUser(newuser);
             var tx = yield hyperledgerUtil.invokeChaincode(user, args, chaincodeID);
-            tx.on('submitted', function(results) {
-                // Deploy request completed successfully
-                console.log("invoke results", results);
-                // done();
-            });
-            tx.on('error', function(err) {
-                console.log("Failed to invoke chaincode", err)
-                    // expect().fail(err.message);
-                    // done(err);
-            });
+            yield waitForInvokeTransaction(tx);
         } catch (err) {
             expect().fail(err.message);
         }
