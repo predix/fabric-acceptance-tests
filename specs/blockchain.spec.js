@@ -52,7 +52,7 @@ describe('Blockchain', function() {
                 charset: 'alphabetic'
             });
             console.log("Registering new user", newuser);
-            var enrollmentSecret = yield hyperledgerUtil.registerUser(newuser);
+            var enrollmentSecret = yield hyperledgerUtil.registerUser(newuser, config.newUserAffiliation);
             console.log("Enrollment secret for", newuser, "is", enrollmentSecret);
             yield hyperledgerUtil.enrollUser(newuser, enrollmentSecret);
             console.log("Successfully registered and enrolled a new user", newuser);

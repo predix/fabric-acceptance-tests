@@ -12,5 +12,6 @@ module.exports = {
   chaincodeQueryArgs:     ["c"],
   chaincodeQueryResult:    "450",
   chaincodeInvokeResult:   "470",
-  keyValueLocation:        "/tmp/keyValStore"
+  keyValueLocation:        "/Users/geoss/tmp/keyValStore",
+  newUserAffiliation:      "institution_a"
 };

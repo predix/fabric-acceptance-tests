@@ -61,7 +61,7 @@ function getRegistrar() {
     return chain.getRegistrar();
 }
 
-function* registerUser(name) {
+function* registerUser(name, affiliation) {
     console.log("Entering registerUser");
     var user = yield * getUser(name);
     var registerUsr = bluebird.promisify(user.register, {
@@ -69,7 +69,7 @@ function* registerUser(name) {
     });
     var registrationRequest = {
         enrollmentID: name,
-        affiliation: "institution_a"
+        affiliation: affiliation
     };
     var secret = yield registerUsr(registrationRequest);
     console.log("Registered user", name);
