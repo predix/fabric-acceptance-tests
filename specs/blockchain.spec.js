@@ -1,13 +1,14 @@
 'use strict';
 
-var expect          = require('expect.js');
+var expect = require('chai').expect;
 var hyperledgerUtil = require('./utils/hyperledgerUtil');
-var config          = require('./config/config');
-var Promise         = require('bluebird');
-var mocha           = require('mocha');
-var coMocha         = require('co-mocha');
-var randomstring    = require('randomstring');
-var delay           = require('delay');
+var eventually = require('./testUtils/eventually');
+var config = require('./config/config');
+var Promise = require('bluebird');
+var mocha = require('mocha');
+var coMocha = require('co-mocha');
+var randomstring = require('randomstring');
+var delay = require('delay');
 
 coMocha(mocha)
 
@@ -16,10 +17,10 @@ describe('Blockchain', function() {
     var newuser;
 
     before(function*() {
-        expect(config.ca).not.to.be(undefined);
-        expect(config.ca).not.to.be.empty();
-        expect(config.peers).not.to.be(undefined);
-        expect(config.peers).not.to.be.empty();
+        expect(config.ca).to.not.be.undefined;
+        expect(config.ca).to.not.be.empty;
+        expect(config.peers).to.not.be.undefined;
+        expect(config.peers).to.not.be.empty;
         hyperledgerUtil.setupChain(config.blockchainName, config.ca, config.peers, config.keyValueLocation);
     })
 
@@ -29,9 +30,9 @@ describe('Blockchain', function() {
             yield hyperledgerUtil.enrollRegistrar(config.registrarUserName, config.registrarPassword);
             console.log("Done enrolling registrar");
             var registrar = hyperledgerUtil.getRegistrar();
-            expect(registrar.getName()).to.be(config.registrarUserName);
+            expect(registrar.getName()).to.equal(config.registrarUserName);
         } catch (err) {
-            expect().fail(err.message);
+            expect.fail(err, null, err.message);
         }
     })
 
@@ -40,7 +41,7 @@ describe('Blockchain', function() {
         try {
             yield hyperledgerUtil.enrollUser(config.userName, config.password);
         } catch (err) {
-            expect().fail(err.message);
+            expect.fail(err, null, err.message);
         }
     })
 
@@ -57,12 +58,13 @@ describe('Blockchain', function() {
             yield hyperledgerUtil.enrollUser(newuser, enrollmentSecret);
             console.log("Successfully registered and enrolled a new user", newuser);
         } catch (err) {
-            expect().fail(err.message);
+            expect.fail(err, null, err.message);
         }
     })
 
     function* waitForDeployTransaction(tx) {
         var eventReceived = false;
+        var errorMessage = null;
         tx.on('complete', function(results) {
             // Deploy request completed successfully
             console.log("deploy results", results);
@@ -70,18 +72,23 @@ describe('Blockchain', function() {
             // Set the testChaincodeID for subsequent tests
             chaincodeID = results.chaincodeID;
             console.log("Successfully deployed chaincode", chaincodeID);
+            expect(chaincodeID).to.not.be.empty;
         });
         tx.on('error', function(err) {
             console.log("Failed to deploy chaincode", err);
-            expect().fail(err.message);
+            errorMessage = err.message;
+            // expect.fail(err, null, err.message);
             eventReceived = true;
         });
-        yield delay(20000);
-        expect(eventReceived).to.be(true);
+        yield eventually(function*() {
+            return eventReceived;
+        }, 1000, 50000).should.equal(true)
+        expect(chaincodeID).to.not.be.empty;
+        expect(errorMessage).to.be.null;
     }
 
     it('should be able to deploy chaincode', function*() {
-        this.timeout(30000);
+        this.timeout(60000);
         console.log("Starting deploying chaincode");
         try {
             var chaincodePath = config.chaincodePath;
@@ -90,44 +97,58 @@ describe('Blockchain', function() {
             var tx = yield hyperledgerUtil.deployChaincode(user, args, chaincodePath);
             yield waitForDeployTransaction(tx);
         } catch (err) {
-            expect().fail(err.message);
+            expect.fail(err, null, err.message);
         }
     })
 
     function* waitForQueryTransaction(tx) {
         var eventReceived = false;
+        var bal = null;
+        var errMessage = null;
         tx.on('complete', function(results) {
-            var bal = results.result.toString();
+            bal = results.result.toString();
             console.log("query results", bal);
             eventReceived = true;
-            expect(bal).to.be(config.chaincodeQueryResult)
         });
         tx.on('error', function(err) {
             console.log("Failed to query chaincode", err)
             eventReceived = true;
-            expect().fail(err.message);
+            errMessage = err.message;
         });
-        yield delay(4000);
-        expect(eventReceived).to.be(true);
+        yield eventually(function*() {
+            return eventReceived;
+        }, 1000, 4000).should.equal(true)
+        expect(errMessage).to.be.null;
+        return bal;
+    }
+
+    function* waitForQueryTransactionAndVerify(tx, queryResult) {
+        var bal = yield waitForQueryTransaction(tx);
+        expect(bal).to.be.equal(queryResult)
+    }
+
+    function* queryChaincode() {
+        var args = config.chaincodeQueryArgs;
+        var user = yield hyperledgerUtil.getUser(newuser);
+        var tx = yield hyperledgerUtil.queryChaincode(user, args, chaincodeID);
+        return tx;
     }
 
     it('should be able to query chaincode', function*() {
         this.timeout(5000);
         console.log("Starting querying chaincode");
         try {
-        	// TODO: remove declararion of chaincodeID here and use the global one that is deployed in previous test
-            var chaincodeID = "3be65a2f291efd2f8d1f1b3d7bda5022e25689313840b1b465a7ff304c452d34c825d102c8a828665791140dd29213b79851de82cd6d21e78b8dad3bbb32ca8e";
-            var args = config.chaincodeQueryArgs;
-            var user = yield hyperledgerUtil.getUser(newuser);
-            var tx = yield hyperledgerUtil.queryChaincode(user, args, chaincodeID);
-            yield waitForQueryTransaction(tx);
+            var tx = yield queryChaincode();
+            yield waitForQueryTransactionAndVerify(tx, config.chaincodeQueryResult);
         } catch (err) {
-            expect().fail(err.message);
+            expect.fail(err, null, err.message);
         }
     })
 
     function* waitForInvokeTransaction(tx) {
         var eventReceived = false;
+        var bal = null;
+        var errMessage = null;
         tx.on('submitted', function(results) {
             console.log("invoke results", results);
             eventReceived = true;
@@ -136,22 +157,27 @@ describe('Blockchain', function() {
             console.log("Failed to invoke chaincode", err)
             eventReceived = true;
         });
-        yield delay(4000);
-        expect(eventReceived).to.be(true);
+        yield eventually(function*() {
+            return eventReceived;
+        }, 1000, 5000).should.equal(true);
+        expect(errMessage).to.be.null;
+        yield eventually(function*() {
+            var tx = yield queryChaincode();
+            var bal = yield waitForQueryTransaction(tx);
+            return bal;
+        }, 1000, 5000).should.equal(config.chaincodeInvokeResult);
     }
 
     it('should be able to invoke chaincode', function*() {
-        this.timeout(5000);
+        this.timeout(15000);
         console.log("Starting invoking chaincode");
         try {
-            // TODO: remove declararion of chaincodeID here and use the global one that is deployed in previous test
-            var chaincodeID = "3be65a2f291efd2f8d1f1b3d7bda5022e25689313840b1b465a7ff304c452d34c825d102c8a828665791140dd29213b79851de82cd6d21e78b8dad3bbb32ca8e";
             var args = config.chaincodeInvokeArgs;
             var user = yield hyperledgerUtil.getUser(newuser);
             var tx = yield hyperledgerUtil.invokeChaincode(user, args, chaincodeID);
             yield waitForInvokeTransaction(tx);
         } catch (err) {
-            expect().fail(err.message);
+            expect.fail(err, null, err.message);
         }
     })
 
