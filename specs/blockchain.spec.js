@@ -87,17 +87,35 @@ describe('Blockchain', function() {
         expect(errorMessage).to.be.null;
     }
 
-    it('should be able to deploy chaincode', function*() {
-        this.timeout(60000);
-        console.log("Starting deploying chaincode");
+    function* invokeChaincodeAndVerify(fnName, args, invokeResult) {
+        console.log("Starting invoking chaincode");
         try {
-            var chaincodePath = config.chaincodePath;
-            var args = config.chaincodeInitArgs;
             var user = yield hyperledgerUtil.getUser(newuser);
-            var tx = yield hyperledgerUtil.deployChaincode(user, args, chaincodePath);
-            yield waitForDeployTransaction(tx);
+            var tx = yield hyperledgerUtil.invokeChaincode(user, fnName, args, chaincodeID);
+            yield waitForInvokeTransaction(tx, invokeResult);
         } catch (err) {
             expect.fail(err, null, err.message);
+        }
+    }
+
+    it('should be able to deploy chaincode', function*() {
+        if (!config.skipDeploy) {
+            this.timeout(60000);
+            console.log("Starting deploying chaincode");
+            try {
+                var chaincodePath = config.chaincodePath;
+                var args = config.chaincodeInitArgs;
+                var user = yield hyperledgerUtil.getUser(newuser);
+                var tx = yield hyperledgerUtil.deployChaincode(user, args, chaincodePath);
+                yield waitForDeployTransaction(tx);
+            } catch (err) {
+                expect.fail(err, null, err.message);
+            }
+        } else {
+            this.timeout(15000);
+            chaincodeID = config.chaincodeID;
+            console.log("Skipping chaincode deploy, just initializing already deployed chaincode");
+            yield invokeChaincodeAndVerify("set", config.chaincodeSetArgs, config.chaincodeQueryResult);
         }
     })
 
@@ -145,7 +163,7 @@ describe('Blockchain', function() {
         }
     })
 
-    function* waitForInvokeTransaction(tx) {
+    function* waitForInvokeTransaction(tx, invokeResult) {
         var eventReceived = false;
         var bal = null;
         var errMessage = null;
@@ -165,7 +183,7 @@ describe('Blockchain', function() {
             var tx = yield queryChaincode();
             var bal = yield waitForQueryTransaction(tx);
             return bal;
-        }, 1000, 5000).should.equal(config.chaincodeInvokeResult);
+        }, 1000, 5000).should.equal(invokeResult);
     }
 
     it('should be able to invoke chaincode', function*() {
@@ -173,9 +191,7 @@ describe('Blockchain', function() {
         console.log("Starting invoking chaincode");
         try {
             var args = config.chaincodeInvokeArgs;
-            var user = yield hyperledgerUtil.getUser(newuser);
-            var tx = yield hyperledgerUtil.invokeChaincode(user, args, chaincodeID);
-            yield waitForInvokeTransaction(tx);
+            yield invokeChaincodeAndVerify("invoke", config.chaincodeInvokeArgs, config.chaincodeInvokeResult);
         } catch (err) {
             expect.fail(err, null, err.message);
         }

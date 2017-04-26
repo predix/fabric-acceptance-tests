@@ -100,11 +100,11 @@ function* queryChaincode(user, args, chaincodeID) {
     return queryTx;
 }
 
-function* invokeChaincode(user, args, chaincodeID) {
+function* invokeChaincode(user, fn, args, chaincodeID) {
     console.log("Entering invokeChaincode");
     var invokeRequest = {
         chaincodeID: chaincodeID,
-        fcn: "invoke",
+        fcn: fn,
         args: args
     }
     var invokeTx = user.invoke(invokeRequest);

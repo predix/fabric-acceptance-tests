@@ -25,6 +25,7 @@ Assertion.prototype.equal = function*(val, msg) {
     var count = Math.floor(this.duration / this.checkInterval);
     for (var i = 0; i < count; i++) {
         yield delay(this.checkInterval);
+        process.stdout.write('.');
         var actual = yield this.fn();
         if (actual === val) {
             break;
