@@ -12,11 +12,11 @@ var delay = require('delay');
 
 coMocha(mocha)
 
-describe('Blockchain', function() {
+describe('Blockchain', function () {
     var chaincodeID;
     var newuser;
 
-    before(function*() {
+    before(function* () {
         expect(config.ca).to.not.be.undefined;
         expect(config.ca).to.not.be.empty;
         expect(config.peers).to.not.be.undefined;
@@ -24,7 +24,7 @@ describe('Blockchain', function() {
         hyperledgerUtil.setupChain(config.blockchainName, config.ca, config.peers, config.keyValueLocation);
     })
 
-    it('should be able to enroll registrar', function*() {
+    it('should be able to enroll registrar', function* () {
         console.log("Starting enrolling user");
         try {
             yield hyperledgerUtil.enrollRegistrar(config.registrarUserName, config.registrarPassword);
@@ -36,7 +36,7 @@ describe('Blockchain', function() {
         }
     })
 
-    it('should be able to enroll a regular user', function*() {
+    it('should be able to enroll a regular user', function* () {
         console.log("Starting enrolling user");
         try {
             yield hyperledgerUtil.enrollUser(config.userName, config.password);
@@ -45,7 +45,7 @@ describe('Blockchain', function() {
         }
     })
 
-    it('should register and enroll a new user', function*() {
+    it('should register and enroll a new user', function* () {
         console.log("Starting registering new user");
         try {
             newuser = randomstring.generate({
@@ -65,7 +65,7 @@ describe('Blockchain', function() {
     function* waitForDeployTransaction(tx) {
         var eventReceived = false;
         var errorMessage = null;
-        tx.on('complete', function(results) {
+        tx.on('complete', function (results) {
             // Deploy request completed successfully
             console.log("deploy results", results);
             eventReceived = true;
@@ -74,13 +74,13 @@ describe('Blockchain', function() {
             console.log("Successfully deployed chaincode", chaincodeID);
             expect(chaincodeID).to.not.be.empty;
         });
-        tx.on('error', function(err) {
+        tx.on('error', function (err) {
             console.log("Failed to deploy chaincode", err);
             errorMessage = err.message;
             // expect.fail(err, null, err.message);
             eventReceived = true;
         });
-        yield eventually(function*() {
+        yield eventually(function* () {
             return eventReceived;
         }, 1000, 50000).should.equal(true)
         expect(chaincodeID).to.not.be.empty;
@@ -98,7 +98,7 @@ describe('Blockchain', function() {
         }
     }
 
-    it('should be able to deploy chaincode', function*() {
+    it('should be able to deploy chaincode', function* () {
         if (!config.skipDeploy) {
             this.timeout(60000);
             console.log("Starting deploying chaincode");
@@ -123,17 +123,17 @@ describe('Blockchain', function() {
         var eventReceived = false;
         var bal = null;
         var errMessage = null;
-        tx.on('complete', function(results) {
+        tx.on('complete', function (results) {
             bal = results.result.toString();
             console.log("query results", bal);
             eventReceived = true;
         });
-        tx.on('error', function(err) {
+        tx.on('error', function (err) {
             console.log("Failed to query chaincode", err)
             eventReceived = true;
             errMessage = err.message;
         });
-        yield eventually(function*() {
+        yield eventually(function* () {
             return eventReceived;
         }, 1000, 4000).should.equal(true)
         expect(errMessage).to.be.null;
@@ -152,7 +152,7 @@ describe('Blockchain', function() {
         return tx;
     }
 
-    it('should be able to query chaincode', function*() {
+    it('should be able to query chaincode', function* () {
         this.timeout(5000);
         console.log("Starting querying chaincode");
         try {
@@ -167,26 +167,26 @@ describe('Blockchain', function() {
         var eventReceived = false;
         var bal = null;
         var errMessage = null;
-        tx.on('submitted', function(results) {
+        tx.on('submitted', function (results) {
             console.log("invoke results", results);
             eventReceived = true;
         });
-        tx.on('error', function(err) {
+        tx.on('error', function (err) {
             console.log("Failed to invoke chaincode", err)
             eventReceived = true;
         });
-        yield eventually(function*() {
+        yield eventually(function* () {
             return eventReceived;
         }, 1000, 5000).should.equal(true);
         expect(errMessage).to.be.null;
-        yield eventually(function*() {
+        yield eventually(function* () {
             var tx = yield queryChaincode();
             var bal = yield waitForQueryTransaction(tx);
             return bal;
         }, 1000, 5000).should.equal(invokeResult);
     }
 
-    it('should be able to invoke chaincode', function*() {
+    it('should be able to invoke chaincode', function* () {
         this.timeout(15000);
         console.log("Starting invoking chaincode");
         try {
