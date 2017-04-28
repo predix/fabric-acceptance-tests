@@ -21,7 +21,7 @@ describe('Blockchain', function () {
         expect(config.ca).to.not.be.empty;
         expect(config.peers).to.not.be.undefined;
         expect(config.peers).to.not.be.empty;
-        hyperledgerUtil.setupChain(config.blockchainName, config.ca, config.peers, config.keyValueLocation);
+        hyperledgerUtil.setupChain(config.blockchainName, config.ca, config.peers, config.keyValueLocation, config.vaultUrl, config.vaultToken);
     })
 
     it('should be able to enroll registrar', function* () {
@@ -82,7 +82,7 @@ describe('Blockchain', function () {
         });
         yield eventually(function* () {
             return eventReceived;
-        }, 1000, 50000).should.equal(true)
+        }, 1000, 50000).should.equal(true);
         expect(chaincodeID).to.not.be.empty;
         expect(errorMessage).to.be.null;
     }

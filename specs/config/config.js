@@ -13,6 +13,8 @@ module.exports = {
   chaincodeInvokeArgs:    ["test1", "test2", "10"],
   chaincodeInvokeResult:  "1780",
   keyValueLocation:       "/Users/geoss/tmp/keyValStore",
+  vaultUrl:               "http://127.0.0.1:8200/v1/secret/myinstance",
+  vaultToken:             "ea13ea6e-80ee-1761-fddf-f0ed4ec66aed",
   newUserAffiliation:     "institution_a",
   chaincodeID:            "456d1b8f7bcb233530e1004a7ea312058d11b7f1b33e51ad44994652c16f7124",
   chaincodeSetArgs:       ["test1", "1800", "test2", "2000"],

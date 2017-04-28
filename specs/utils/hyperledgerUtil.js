@@ -3,19 +3,31 @@
 var bluebird = require('bluebird');
 var hfc = require('hfc');
 var fs = require('fs');
+var vaultkv = require('vault-hfc-kvstore');
+var debug = require('debug')('hfc-util');
 
 var chain;
 
-function* setupChain(chainName, caAddr, peers, keystoreLocation) {
+function* setupChain(chainName, caAddr, peers, keystoreLocation, vaultUrl, vaultToken) {
     chain = hfc.newChain(chainName);
-    console.log("Adding membership service ", caAddr);
+    debug("Adding membership service ", caAddr);
     chain.setMemberServicesUrl("grpc://" + caAddr);
     peers.split(",").forEach(peer => {
-        console.log("Adding peer ", peer);
+        debug("Adding peer ", peer);
         chain.addPeer("grpc://" + peer);
     });
-    chain.setKeyValStore(hfc.newFileKeyValStore(keystoreLocation));
-    console.log("Setup the keyval store");
+    if (vaultUrl != undefined && vaultToken != undefined) {
+        debug("Vault url & token were passed. Using vault: ", vaultUrl);
+        var vault = vaultkv.newVaultKeyValStore(vaultUrl, vaultToken);
+        chain.setKeyValStore(vault);
+    }
+    else if (keystoreLocation != undefined) {
+        debug("Vault url & token were not passed. Using key store location: ", keystoreLocation);
+        var fileKVStore = hfc.newFileKeyValStore(keystoreLocation);
+        chain.setKeyValStore(fileKVStore);
+    } else {
+        debug("Vault or file store location was not specified. Subsequent calls will fail!");
+    }
 }
 
 function* getUser(name) {
@@ -27,33 +39,36 @@ function* getUser(name) {
 }
 
 function* enrollRegistrar(name, passwd) {
-    console.log("Entering enrollRegistrar");
-    var user = yield * enrollUser(name, passwd);
+    debug("Entering enrollRegistrar");
+    var user = yield* enrollUser(name, passwd);
     chain.setRegistrar(user);
-    console.log("Successfully enrolled registrar");
+    debug("Successfully enrolled registrar");
     return user;
 }
 
 function* enrollUser(name, passwd) {
-    console.log("Entering enrollUser");
-    var client = yield * getUser(name);
-    console.log("Successfully got the user ", name);
+    debug("Entering enrollUser");
+    var client = yield* getUser(name);
+    debug("Successfully got the user ", name);
     if (client.isEnrolled()) {
-        console.log("Client", client.getName(), "is already enrolled");
+        debug("Client", client.getName(), "is already enrolled");
         return client;
     }
     var enroll = bluebird.promisify(client.enroll, {
         context: client
     });
     yield enroll(passwd);
-    console.log("Successfully enrolled user", name);
-    var path = chain.getKeyValStore().dir + "/member." + client.getName();
-    var exists = fs.existsSync(path);
-    if (!exists) {
-        console.log("Failed to store client certs for", client.getName(), ", error:", err);
-        throw new Error("Failed to store client token")
+    debug("Successfully enrolled user", name);
+    var kvStore = chain.getKeyValStore();
+    var getVal = bluebird.promisify(kvStore.getValue, {
+        context: kvStore
+    });
+    try {
+        var data = yield getVal('member.' + name)
+        debug("Successfully stored client certs");
+    } catch (err) {
+        throw new Error(err.message);
     }
-    console.log("Successfully stored client certs");
     return client
 }
 
@@ -62,8 +77,8 @@ function getRegistrar() {
 }
 
 function* registerUser(name, affiliation) {
-    console.log("Entering registerUser");
-    var user = yield * getUser(name);
+    debug("Entering registerUser");
+    var user = yield* getUser(name);
     var registerUsr = bluebird.promisify(user.register, {
         context: user
     });
@@ -72,43 +87,43 @@ function* registerUser(name, affiliation) {
         affiliation: affiliation
     };
     var secret = yield registerUsr(registrationRequest);
-    console.log("Registered user", name);
+    debug("Registered user", name);
     return secret;
 }
 
 function* deployChaincode(user, args, chaincodePath) {
-    console.log("Entering deployChaincode");
+    debug("Entering deployChaincode");
     var deployRequest = {
         chaincodePath: chaincodePath,
         fcn: "init",
         args: args
     }
     var deployTx = user.deploy(deployRequest);
-    console.log("Submitted deploy transaction");
+    debug("Submitted deploy transaction");
     return deployTx;
 }
 
 function* queryChaincode(user, args, chaincodeID) {
-    console.log("Entering queryChaincode");
+    debug("Entering queryChaincode");
     var queryRequest = {
         chaincodeID: chaincodeID,
         fcn: "query",
         args: args
     }
     var queryTx = user.query(queryRequest);
-    console.log("Submitted query transaction");
+    debug("Submitted query transaction");
     return queryTx;
 }
 
 function* invokeChaincode(user, fn, args, chaincodeID) {
-    console.log("Entering invokeChaincode");
+    debug("Entering invokeChaincode");
     var invokeRequest = {
         chaincodeID: chaincodeID,
         fcn: fn,
         args: args
     }
     var invokeTx = user.invoke(invokeRequest);
-    console.log("Submitted invoke transaction");
+    debug("Submitted invoke transaction");
     return invokeTx;
 }
 
