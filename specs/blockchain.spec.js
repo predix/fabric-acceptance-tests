@@ -1,7 +1,7 @@
 'use strict';
 
 var expect = require('chai').expect;
-var hyperledgerUtil = require('./utils/hyperledgerUtil');
+var hyperledgerUtil = require('hfc-util');
 var eventually = require('./testUtils/eventually');
 var config = require('./config/config');
 var Promise = require('bluebird');

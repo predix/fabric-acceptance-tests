@@ -24,8 +24,9 @@
     "debug": "^2.6.6",
     "delay": "^2.0.0",
     "hfc": "^0.6.1",
+    "hfc-util": "0.0.1",
     "mocha": "^3.2.0",
     "randomstring": "^1.1.5",
-    "vault-hfc-kvstore": "0.0.1"
+    "vault-hfc-kvstore": "0.0.2"
   }
 }
