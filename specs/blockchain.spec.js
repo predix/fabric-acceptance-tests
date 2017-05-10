@@ -40,27 +40,30 @@ describe('Blockchain', function () {
         console.log("Starting enrolling user");
         try {
             yield hyperledgerUtil.enrollUser(config.userName, config.password);
+            newuser = config.userName;
         } catch (err) {
             expect.fail(err, null, err.message);
         }
     })
 
-    it('should register and enroll a new user', function* () {
-        console.log("Starting registering new user");
-        try {
-            newuser = randomstring.generate({
-                length: 8,
-                charset: 'alphabetic'
-            });
-            console.log("Registering new user", newuser);
-            var enrollmentSecret = yield hyperledgerUtil.registerUser(newuser, config.newUserAffiliation);
-            console.log("Enrollment secret for", newuser, "is", enrollmentSecret);
-            yield hyperledgerUtil.enrollUser(newuser, enrollmentSecret);
-            console.log("Successfully registered and enrolled a new user", newuser);
-        } catch (err) {
-            expect.fail(err, null, err.message);
-        }
-    })
+    if (config.useNewUser) {
+        it('should register and enroll a new user', function* () {
+            console.log("Starting registering new user");
+            try {
+                newuser = randomstring.generate({
+                    length: 8,
+                    charset: 'alphabetic'
+                });
+                console.log("Registering new user", newuser);
+                var enrollmentSecret = yield hyperledgerUtil.registerUser(newuser, config.newUserAffiliation);
+                console.log("Enrollment secret for", newuser, "is", enrollmentSecret);
+                yield hyperledgerUtil.enrollUser(newuser, enrollmentSecret);
+                console.log("Successfully registered and enrolled a new user", newuser);
+            } catch (err) {
+                expect.fail(err, null, err.message);
+            }
+        })
+    }
 
     function* waitForDeployTransaction(tx) {
         var eventReceived = false;

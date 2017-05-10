@@ -18,5 +18,6 @@ module.exports = {
   newUserAffiliation:     "institution_a",
   chaincodeID:            "456d1b8f7bcb233530e1004a7ea312058d11b7f1b33e51ad44994652c16f7124",
   chaincodeSetArgs:       ["test1", "1800", "test2", "2000"],
-  skipDeploy:             process.env.SKIP_DEPLOY === 'true'
+  skipDeploy:             process.env.SKIP_DEPLOY === 'true',
+  useNewUser:             process.env.USE_NEW_USER === 'true'
 };
