@@ -13,61 +13,10 @@ var delay = require('delay');
 coMocha(mocha)
 
 describe('Blockchain', function () {
-    var chaincodeID;
-    var newuser;
-
-    before(function* () {
-        expect(config.ca).to.not.be.undefined;
-        expect(config.ca).to.not.be.empty;
-        expect(config.peers).to.not.be.undefined;
-        expect(config.peers).to.not.be.empty;
-        hyperledgerUtil.setupChain(config.blockchainName, config.ca, config.peers, config.keyValueLocation, config.vaultUrl, config.vaultToken);
-    })
-
-    it('should be able to enroll registrar', function* () {
-        console.log("Starting enrolling user");
-        try {
-            yield hyperledgerUtil.enrollRegistrar(config.registrarUserName, config.registrarPassword);
-            console.log("Done enrolling registrar");
-            var registrar = hyperledgerUtil.getRegistrar();
-            expect(registrar.getName()).to.equal(config.registrarUserName);
-        } catch (err) {
-            expect.fail(err, null, err.message);
-        }
-    })
-
-    it('should be able to enroll a regular user', function* () {
-        console.log("Starting enrolling user");
-        try {
-            yield hyperledgerUtil.enrollUser(config.userName, config.password);
-            newuser = config.userName;
-        } catch (err) {
-            expect.fail(err, null, err.message);
-        }
-    })
-
-    if (config.useNewUser) {
-        it('should register and enroll a new user', function* () {
-            console.log("Starting registering new user");
-            try {
-                newuser = randomstring.generate({
-                    length: 8,
-                    charset: 'alphabetic'
-                });
-                console.log("Registering new user", newuser);
-                var enrollmentSecret = yield hyperledgerUtil.registerUser(newuser, config.newUserAffiliation);
-                console.log("Enrollment secret for", newuser, "is", enrollmentSecret);
-                yield hyperledgerUtil.enrollUser(newuser, enrollmentSecret);
-                console.log("Successfully registered and enrolled a new user", newuser);
-            } catch (err) {
-                expect.fail(err, null, err.message);
-            }
-        })
-    }
-
     function* waitForDeployTransaction(tx) {
         var eventReceived = false;
         var errorMessage = null;
+        var chaincodeID;
         tx.on('complete', function (results) {
             // Deploy request completed successfully
             console.log("deploy results", results);
@@ -80,7 +29,6 @@ describe('Blockchain', function () {
         tx.on('error', function (err) {
             console.log("Failed to deploy chaincode", err);
             errorMessage = err.message;
-            // expect.fail(err, null, err.message);
             eventReceived = true;
         });
         yield eventually(function* () {
@@ -88,39 +36,8 @@ describe('Blockchain', function () {
         }, 1000, 50000).should.equal(true);
         expect(chaincodeID).to.not.be.empty;
         expect(errorMessage).to.be.null;
+        return chaincodeID;
     }
-
-    function* invokeChaincodeAndVerify(fnName, args, invokeResult) {
-        console.log("Starting invoking chaincode");
-        try {
-            var user = yield hyperledgerUtil.getUser(newuser);
-            var tx = yield hyperledgerUtil.invokeChaincode(user, fnName, args, chaincodeID);
-            yield waitForInvokeTransaction(tx, invokeResult);
-        } catch (err) {
-            expect.fail(err, null, err.message);
-        }
-    }
-
-    it('should be able to deploy chaincode', function* () {
-        if (!config.skipDeploy) {
-            this.timeout(60000);
-            console.log("Starting deploying chaincode");
-            try {
-                var chaincodePath = config.chaincodePath;
-                var args = config.chaincodeInitArgs;
-                var user = yield hyperledgerUtil.getUser(newuser);
-                var tx = yield hyperledgerUtil.deployChaincode(user, args, chaincodePath);
-                yield waitForDeployTransaction(tx);
-            } catch (err) {
-                expect.fail(err, null, err.message);
-            }
-        } else {
-            this.timeout(15000);
-            chaincodeID = config.chaincodeID;
-            console.log("Skipping chaincode deploy, just initializing already deployed chaincode");
-            yield invokeChaincodeAndVerify("set", config.chaincodeSetArgs, config.chaincodeQueryResult);
-        }
-    })
 
     function* waitForQueryTransaction(tx) {
         var eventReceived = false;
@@ -144,29 +61,17 @@ describe('Blockchain', function () {
     }
 
     function* waitForQueryTransactionAndVerify(tx, queryResult) {
-        var bal = yield waitForQueryTransaction(tx);
+        var bal = yield* waitForQueryTransaction(tx);
         expect(bal).to.be.equal(queryResult)
     }
 
-    function* queryChaincode() {
-        var args = config.chaincodeQueryArgs;
+    function* queryChaincode(newuser, chaincodeID, fn, args) {
         var user = yield hyperledgerUtil.getUser(newuser);
-        var tx = yield hyperledgerUtil.queryChaincode(user, args, chaincodeID);
+        var tx = yield hyperledgerUtil.queryChaincode(user, fn, args, chaincodeID);
         return tx;
     }
 
-    it('should be able to query chaincode', function* () {
-        this.timeout(5000);
-        console.log("Starting querying chaincode");
-        try {
-            var tx = yield queryChaincode();
-            yield waitForQueryTransactionAndVerify(tx, config.chaincodeQueryResult);
-        } catch (err) {
-            expect.fail(err, null, err.message);
-        }
-    })
-
-    function* waitForInvokeTransaction(tx, invokeResult) {
+    function* waitForInvokeTransaction(tx, newuser, chaincodeID, chaincode, useQueryResult) {
         var eventReceived = false;
         var bal = null;
         var errMessage = null;
@@ -182,22 +87,222 @@ describe('Blockchain', function () {
             return eventReceived;
         }, 1000, 5000).should.equal(true);
         expect(errMessage).to.be.null;
+        var result = useQueryResult ? chaincode.chaincodeQueryResult : chaincode.chaincodeInvokeResult;
         yield eventually(function* () {
-            var tx = yield queryChaincode();
-            var bal = yield waitForQueryTransaction(tx);
+            var tx = yield* queryChaincode(newuser, chaincodeID, chaincode.chaincodeQueryFn,
+                chaincode.chaincodeQueryArgs);
+            var bal = yield* waitForQueryTransaction(tx);
             return bal;
-        }, 1000, 5000).should.equal(invokeResult);
+        }, 1000, 5000).should.equal(result);
     }
 
-    it('should be able to invoke chaincode', function* () {
-        this.timeout(15000);
+    function* invokeChaincodeAndVerify(newuser, chaincodeID, chaincode, useSetFn = false, useQueryResult = false) {
         console.log("Starting invoking chaincode");
         try {
-            var args = config.chaincodeInvokeArgs;
-            yield invokeChaincodeAndVerify("invoke", config.chaincodeInvokeArgs, config.chaincodeInvokeResult);
+            var user = yield hyperledgerUtil.getUser(newuser);
+            var fn = useSetFn ?  chaincode.chaincodeSetFn: chaincode.chaincodeInvokeFn;
+            var args = useSetFn ? chaincode.chaincodeSetArgs: chaincode.chaincodeInvokeArgs;
+            var tx = yield hyperledgerUtil.invokeChaincode(user, fn, args, chaincodeID);
+            yield* waitForInvokeTransaction(tx, newuser, chaincodeID, chaincode, useQueryResult);
+            console.log("Successfully invoked and verified chaincode");
         } catch (err) {
             expect.fail(err, null, err.message);
         }
+    }
+
+    function* registerAndEnrollUser(userAffiliation, isRegistrar=false, attrs) {
+        var usr = randomstring.generate({
+            length: 8,
+            charset: 'alphabetic'
+        });
+        console.log("Registering new user", usr);
+        var enrollmentSecret = yield hyperledgerUtil.registerUser(usr, userAffiliation,isRegistrar, attrs);
+        console.log("Enrollment secret for", usr, "is", enrollmentSecret);
+        yield hyperledgerUtil.enrollUser(usr, enrollmentSecret);
+        console.log("Successfully registered and enrolled a new user", usr, "with attribute ", attrs);
+        return usr;
+    }
+
+    before(function* () {
+        expect(config.ca).to.not.be.undefined;
+        expect(config.ca).to.not.be.empty;
+        expect(config.peers).to.not.be.undefined;
+        expect(config.peers).to.not.be.empty;
+        hyperledgerUtil.setupChain(config.blockchainName, config.ca, config.peers, config.keyValueLocation, config.vaultUrl, config.vaultToken);
     })
+
+    describe('Regular chaincode', function () {
+        var chaincodeID;
+        var newuser;
+
+        it('should be able to enroll registrar', function* () {
+            console.log("Starting enrolling user");
+            try {
+                yield hyperledgerUtil.enrollRegistrar(config.registrarUserName, config.registrarPassword);
+                console.log("Done enrolling registrar");
+                var registrar = hyperledgerUtil.getRegistrar();
+                expect(registrar.getName()).to.equal(config.registrarUserName);
+            } catch (err) {
+                expect.fail(err, null, err.message);
+            }
+        })
+
+        it('should be able to enroll a regular user', function* () {
+            console.log("Starting enrolling user");
+            try {
+                yield hyperledgerUtil.enrollUser(config.userName, config.password);
+                newuser = config.userName;
+            } catch (err) {
+                expect.fail(err, null, err.message);
+            }
+        })
+
+        if (config.useNewUser) {
+            it('should register and enroll a new user', function* () {
+                console.log("Starting registering new user");
+                try {
+                    newuser = yield* registerAndEnrollUser(config.newUserAffiliation);
+                } catch (err) {
+                    expect.fail(err, null, err.message);
+                }
+            })
+        }
+
+        it('should be able to deploy chaincode', function* () {
+            if (!config.skipDeploy) {
+                this.timeout(60000);
+                console.log("Starting deploying chaincode");
+                try {
+                    var chaincodePath = config.regularChaincode.chaincodePath;
+                    var args = config.regularChaincode.chaincodeInitArgs;
+                    var user = yield hyperledgerUtil.getUser(newuser);
+                    var tx = yield hyperledgerUtil.deployChaincode(user, args, chaincodePath);
+                    chaincodeID = yield* waitForDeployTransaction(tx);
+                } catch (err) {
+                    expect.fail(err, null, err.message);
+                }
+            } else {
+                this.timeout(15000);
+                chaincodeID = config.regularChaincode.chaincodeID;
+                console.log("Skipping chaincode deploy, just initializing already deployed chaincode", chaincodeID);
+                yield* invokeChaincodeAndVerify(newuser, chaincodeID, config.regularChaincode, true, true);
+            }
+        })
+
+        it('should be able to query chaincode', function* () {
+            this.timeout(5000);
+            console.log("Starting querying chaincode");
+            try {
+                var tx = yield* queryChaincode(newuser, chaincodeID, config.regularChaincode.chaincodeQueryFn, config.regularChaincode.chaincodeQueryArgs);
+                yield* waitForQueryTransactionAndVerify(tx, config.regularChaincode.chaincodeQueryResult);
+            } catch (err) {
+                expect.fail(err, null, err.message);
+            }
+        })
+
+        it('should be able to invoke chaincode', function* () {
+            this.timeout(15000);
+            console.log("Starting invoking chaincode");
+            try {
+                var args = config.chaincodeInvokeArgs;
+                yield* invokeChaincodeAndVerify(newuser, chaincodeID, config.regularChaincode);
+            } catch (err) {
+                expect.fail(err, null, err.message);
+            }
+        })
+    })
+
+    if (config.acaEnabled) {
+        var validUser;
+        var invalidUser;
+        var chaincodeID = config.acaChaincode.chaincodeID;
+
+        describe('ACA chaincode', function () {
+            it('should register and enroll new users with attributes', function* () {
+                try {
+                    console.log("Register user with valid attributes");
+                    var validAttributes = {
+                        name: config.acaChaincode.chaincodeInitArgs[0],
+                        value: config.acaChaincode.chaincodeInitArgs[1]
+                    }
+                    validUser = yield* registerAndEnrollUser(config.newUserAffiliation, false, [validAttributes]);
+                    console.log("User with valid attributes", validUser);
+
+                    console.log("Register user with invalid attributes");
+                    var invalidAttributes = {
+                        name: config.acaChaincode.chaincodeInitArgs[0],
+                        value: config.acaChaincode.chaincodeInitArgs[1] + "foo"
+                    }
+                    invalidUser = yield* registerAndEnrollUser(config.newUserAffiliation, false, [invalidAttributes]);
+                    console.log("User with invalid attributes", invalidUser);
+                } catch (err) {
+                    expect.fail(err, null, err.message);
+                }
+            })
+
+            it('should deploy aca chaincode', function* () {
+                this.timeout(60000);
+                console.log("Starting deploying chaincode");
+                try {
+                    var chaincodePath = config.acaChaincode.chaincodePath;
+                    var args = config.acaChaincode.chaincodeInitArgs;
+                    var user = yield hyperledgerUtil.getUser(validUser);
+                    var tx = yield hyperledgerUtil.deployChaincode(user, args, chaincodePath);
+                    chaincodeID = yield* waitForDeployTransaction(tx);
+                } catch (err) {
+                    expect.fail(err, null, err.message);
+                }
+            })
+
+            it('should be able to query cert attribute', function* () {
+                this.timeout(5000);
+                console.log("Starting querying chaincode");
+                try {
+                    yield hyperledgerUtil.enrollUser(config.userName, config.password);
+                    var tx = yield* queryChaincode(config.userName, chaincodeID, "attributes",
+                        config.acaChaincode.chaincodeQueryArgs);
+                    yield* waitForQueryTransactionAndVerify(tx, "admin");
+                } catch (err) {
+                    expect.fail(err, null, err.message);
+                }
+            })
+
+            it('any user should be able to query chaincode', function* () {
+                this.timeout(5000);
+                console.log("Starting querying chaincode");
+                try {
+                    var tx = yield* queryChaincode(invalidUser, chaincodeID, config.acaChaincode.chaincodeQueryFn,
+                        config.acaChaincode.chaincodeQueryArgs);
+                    yield* waitForQueryTransactionAndVerify(tx, config.acaChaincode.chaincodeQueryResult);
+                } catch (err) {
+                    expect.fail(err, null, err.message);
+                }
+            })
+
+            it('user with valid attribute should be able to invoke chaincode', function* () {
+                this.timeout(15000);
+                console.log("Starting invoking chaincode");
+                try {
+                    var args = config.chaincodeInvokeArgs;
+                    yield* invokeChaincodeAndVerify(validUser, chaincodeID, config.acaChaincode);
+                } catch (err) {
+                    expect.fail(err, null, err.message);
+                }
+            })
+
+            it('user with invalid attribute should not be able to invoke chaincode', function* () {
+                this.timeout(15000);
+                console.log("Starting invoking chaincode");
+                try {
+                    var args = config.chaincodeInvokeArgs;
+                    // Value of counter should remain to be the result of invoke operation and not be reset
+                    yield* invokeChaincodeAndVerify(invalidUser, chaincodeID, config.acaChaincode, true);
+                } catch (err) {
+                    expect.fail(err, null, err.message);
+                }
+            })
+
+        })
+    }
 
 });
