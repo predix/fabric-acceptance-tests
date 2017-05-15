@@ -100,8 +100,8 @@ describe('Blockchain', function () {
         console.log("Starting invoking chaincode");
         try {
             var user = yield hyperledgerUtil.getUser(newuser);
-            var fn = useSetFn ?  chaincode.chaincodeSetFn: chaincode.chaincodeInvokeFn;
-            var args = useSetFn ? chaincode.chaincodeSetArgs: chaincode.chaincodeInvokeArgs;
+            var fn = useSetFn ? chaincode.chaincodeSetFn : chaincode.chaincodeInvokeFn;
+            var args = useSetFn ? chaincode.chaincodeSetArgs : chaincode.chaincodeInvokeArgs;
             var tx = yield hyperledgerUtil.invokeChaincode(user, fn, args, chaincodeID);
             yield* waitForInvokeTransaction(tx, newuser, chaincodeID, chaincode, useQueryResult);
             console.log("Successfully invoked and verified chaincode");
@@ -110,13 +110,13 @@ describe('Blockchain', function () {
         }
     }
 
-    function* registerAndEnrollUser(userAffiliation, isRegistrar=false, attrs) {
+    function* registerAndEnrollUser(userAffiliation, isRegistrar = false, attrs) {
         var usr = randomstring.generate({
             length: 8,
             charset: 'alphabetic'
         });
         console.log("Registering new user", usr);
-        var enrollmentSecret = yield hyperledgerUtil.registerUser(usr, userAffiliation,isRegistrar, attrs);
+        var enrollmentSecret = yield hyperledgerUtil.registerUser(usr, userAffiliation, isRegistrar, attrs);
         console.log("Enrollment secret for", usr, "is", enrollmentSecret);
         yield hyperledgerUtil.enrollUser(usr, enrollmentSecret);
         console.log("Successfully registered and enrolled a new user", usr, "with attribute ", attrs);
@@ -241,14 +241,21 @@ describe('Blockchain', function () {
             })
 
             it('should deploy aca chaincode', function* () {
-                this.timeout(60000);
-                console.log("Starting deploying chaincode");
                 try {
-                    var chaincodePath = config.acaChaincode.chaincodePath;
-                    var args = config.acaChaincode.chaincodeInitArgs;
                     var user = yield hyperledgerUtil.getUser(validUser);
-                    var tx = yield hyperledgerUtil.deployChaincode(user, args, chaincodePath);
-                    chaincodeID = yield* waitForDeployTransaction(tx);
+                    if (!config.skipDeploy) {
+                        this.timeout(60000);
+                        console.log("Starting deploying chaincode");
+                        var chaincodePath = config.acaChaincode.chaincodePath;
+                        var args = config.acaChaincode.chaincodeInitArgs;
+                        var tx = yield hyperledgerUtil.deployChaincode(user, args, chaincodePath);
+                        chaincodeID = yield* waitForDeployTransaction(tx);
+                    } else {
+                        this.timeout(15000);
+                        chaincodeID = config.acaChaincode.chaincodeID;
+                        console.log("Skipping chaincode deploy, just initializing already deployed chaincode", chaincodeID);
+                        yield* invokeChaincodeAndVerify(validUser, chaincodeID, config.acaChaincode, true, true);
+                    }
                 } catch (err) {
                     expect.fail(err, null, err.message);
                 }
