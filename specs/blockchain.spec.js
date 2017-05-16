@@ -65,7 +65,7 @@ describe('Blockchain', function () {
         expect(bal).to.be.equal(queryResult)
     }
 
-    function* queryChaincode(newuser, chaincodeID, fn, args, attrs=null) {
+    function* queryChaincode(newuser, chaincodeID, fn, args, attrs = null) {
         var user = yield hyperledgerUtil.getUser(newuser);
         var tx = yield hyperledgerUtil.queryChaincode(user, fn, args, chaincodeID, attrs);
         return tx;
@@ -97,7 +97,7 @@ describe('Blockchain', function () {
     }
 
     function* invokeChaincodeAndVerify(newuser, chaincodeID, chaincode, useSetFn = false,
-        useQueryResult = false, attrs=null) {
+        useQueryResult = false, attrs = null) {
         console.log("Starting invoking chaincode");
         try {
             var user = yield hyperledgerUtil.getUser(newuser);
@@ -183,11 +183,15 @@ describe('Blockchain', function () {
                     expect.fail(err, null, err.message);
                 }
             } else {
-                this.timeout(15000);
+                console.log("Skipping chaincode deploy");
                 chaincodeID = config.regularChaincode.chaincodeID;
-                console.log("Skipping chaincode deploy, just initializing already deployed chaincode", chaincodeID);
-                yield* invokeChaincodeAndVerify(newuser, chaincodeID, config.regularChaincode, true, true);
             }
+        })
+
+        it('should reset the chaincode state', function* () {
+            this.timeout(15000);
+            console.log("Initializing already deployed chaincode", chaincodeID);
+            yield* invokeChaincodeAndVerify(newuser, chaincodeID, config.regularChaincode, true, true);
         })
 
         it('should be able to query chaincode', function* () {
@@ -223,6 +227,7 @@ describe('Blockchain', function () {
         describe('ACA chaincode', function () {
             it('should register and enroll new users with attributes', function* () {
                 try {
+                    this.timeout(15000);
                     console.log("Register user with valid attributes");
                     var validAttributes = [{
                         name: config.acaChaincode.chaincodeInitArgs[0],
@@ -258,13 +263,18 @@ describe('Blockchain', function () {
                     } else {
                         this.timeout(15000);
                         chaincodeID = config.acaChaincode.chaincodeID;
-                        console.log("Skipping chaincode deploy, just initializing already deployed chaincode", chaincodeID);
-                        yield* invokeChaincodeAndVerify(validUser, chaincodeID, config.acaChaincode,
-                            true, true, attrs);
+                        console.log("Skipping chaincode deploy");
                     }
                 } catch (err) {
                     expect.fail(err, null, err.message);
                 }
+            })
+
+            it('should reset the counter', function* () {
+                this.timeout(15000);
+                console.log("Initializing already deployed chaincode", chaincodeID);
+                yield* invokeChaincodeAndVerify(validUser, chaincodeID, config.acaChaincode,
+                    true, true, attrs);
             })
 
             it('should be able to query cert attribute', function* () {
