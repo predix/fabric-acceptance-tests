@@ -1,8 +1,9 @@
 module.exports = {
   blockchainName:         "predixBlockchain",
-  peers:                  "10.244.8.3:30303,10.244.8.4:30303,10.244.9.2:30303",
+  peers:                  "10.244.8.3:30303,10.244.8.4:30303,10.244.9.2:30303,10.244.9.3:30303",
+  eventhub:               "10.244.8.3:31315,10.244.8.4:31315,10.244.9.2:31315,10.244.9.3:31315",
   ca:                     "10.244.8.2:50051",
-  registrarUserName:      "WebAppAdmin3",
+  registrarUserName:      "WebAppAdmin",
   registrarPassword:      "DJY27pEnl16d",
   userName:               "jim",
   password:               "6avZQLwcUe9b",
