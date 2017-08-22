@@ -9,7 +9,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git@github.svc.ice.gecis.io:bifrost/blockchain-acceptance-tests.git"
+    "url": "git@github.com:predix/fabric-acceptance-tests.git"
   },
   "keywords": [
     "blockchain",
